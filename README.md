@@ -149,6 +149,36 @@ Also, I developing the general experimental framework I created for LLM research
 
 ---
 
+## Quick Start
+
+To get started quickly with this project:
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/LuckyOne7777/LLM-Trading-Lab.git
+   cd LLM-Trading-Lab
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Run the trading script (example):**
+   ```bash
+   python Experiments/chatgpt_micro-cap/scripts/processing/trading_script.py --file "Experiments/chatgpt_micro-cap/csv_files/Daily_Updates.csv"
+   ```
+   - You can specify your own CSV file with the `--file` argument.
+
+4. **Explore research and results:**
+   - See the `Experiments/chatgpt_micro-cap/evaluation/` folder for reports and papers.
+   - Check `Experiments/chatgpt_micro-cap/collected_artifacts/` for research logs and summaries.
+
+5. **Contribute:**
+   - See [Other/CONTRIBUTING.md](Other/CONTRIBUTING.md) for how to report issues or submit pull requests.
+
+---
+
 ## Contributing
 
 Contributions are welcome.
