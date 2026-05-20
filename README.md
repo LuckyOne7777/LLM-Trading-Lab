@@ -138,6 +138,20 @@ Here are the artifacts links for the Micro-Cap Experiment:
 - yfinance (primary data source)  
 - Stooq (fallback data source)  
 - Matplotlib  
+- Optional Adanos Market Sentiment API context for IPO experiment prompts (`ADANOS_API_KEY`)
+
+### Optional Sentiment Context
+
+The multi-model IPO experiment can enrich prompts with Adanos Market Sentiment
+context for tickers that are already present in the allowed portfolio or IPO
+universe. This does not expand the model's trading universe; it only adds
+Reddit, X / FinTwit, News, and Polymarket sentiment context for eligible U.S.
+equities.
+
+```bash
+export ADANOS_API_KEY="sk_live_..."
+export ADANOS_API_BASE_URL="https://api.adanos.org"
+```
 
 ---
 

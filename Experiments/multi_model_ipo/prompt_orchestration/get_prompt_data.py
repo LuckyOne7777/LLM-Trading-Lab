@@ -72,8 +72,12 @@ def get_macro_news(n: int = 5, summary_limit: int = 200):
 # =========================================================
 
 MASSIVE_API_KEY = os.getenv("MASSIVE_API_KEY")
+ADANOS_API_KEY = os.getenv("ADANOS_API_KEY")
 BASE_URL = "https://api.polygon.io"
+ADANOS_API_BASE_URL = (os.getenv("ADANOS_API_BASE_URL") or "https://api.adanos.org").rstrip("/")
 REQUEST_TIMEOUT = 20
+ADANOS_REQUEST_TIMEOUT = 8
+ADANOS_PLATFORMS = ("reddit", "x", "news", "polymarket")
 
 session = requests.Session()
 
@@ -113,8 +117,80 @@ def _request_json(url: str, params: dict) -> dict | list | None:
         resp.raise_for_status()
         return resp.json()
 
+    except (requests.RequestException, ValueError):
+        return None
+
+
+def _request_adanos_json(platform: str, ticker: str) -> dict | None:
+    if not ADANOS_API_KEY:
+        return None
+
+    try:
+        resp = session.get(
+            f"{ADANOS_API_BASE_URL}/{platform}/stocks/v1/stock/{ticker}",
+            headers={"X-API-Key": ADANOS_API_KEY},
+            timeout=ADANOS_REQUEST_TIMEOUT,
+        )
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        payload = resp.json()
+        return payload if isinstance(payload, dict) else None
     except requests.RequestException:
         return None
+
+
+def _format_adanos_sentiment_row(ticker: str, platform: str, payload: dict) -> str | None:
+    if payload.get("found") is False:
+        return None
+
+    fields = [
+        f"TICKER={ticker}",
+        f"SOURCE={platform}",
+        f"SENTIMENT={payload.get('sentiment_score', 'UNKNOWN')}",
+        f"BUZZ={payload.get('buzz_score', 'UNKNOWN')}",
+        f"MENTIONS={payload.get('mentions', 'UNKNOWN')}",
+        f"BULLISH_PCT={payload.get('bullish_pct', 'UNKNOWN')}",
+        f"BEARISH_PCT={payload.get('bearish_pct', 'UNKNOWN')}",
+        f"TREND={payload.get('trend', 'UNKNOWN')}",
+    ]
+    return " | ".join(fields)
+
+
+def get_adanos_sentiment_context(tickers, max_tickers: int = 12) -> str:
+    """
+    Return optional Adanos Market Sentiment context for already-allowed tickers.
+
+    This helper never expands the model's trading universe. Callers should pass
+    only portfolio tickers or the explicit IPO whitelist already included in the
+    prompt.
+    """
+    normalized: list[str] = []
+    for ticker in tickers:
+        if not isinstance(ticker, str):
+            continue
+        value = ticker.strip().upper()
+        if value and value not in normalized:
+            normalized.append(value)
+        if len(normalized) >= max_tickers:
+            break
+
+    lines = ["ADANOS_SENTIMENT_START"]
+    if not normalized:
+        lines.append("No eligible tickers supplied.")
+    elif not ADANOS_API_KEY:
+        lines.append("Optional Adanos Market Sentiment API disabled: ADANOS_API_KEY is not configured.")
+    else:
+        for ticker in normalized:
+            for platform in ADANOS_PLATFORMS:
+                payload = _request_adanos_json(platform, ticker)
+                if not payload:
+                    continue
+                row = _format_adanos_sentiment_row(ticker, platform, payload)
+                if row:
+                    lines.append(row)
+    lines.append("ADANOS_SENTIMENT_END")
+    return "\n".join(lines)
 
 
 # =========================================================

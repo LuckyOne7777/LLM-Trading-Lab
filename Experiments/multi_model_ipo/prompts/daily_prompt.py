@@ -1,6 +1,10 @@
 import pandas as pd
 
-from ..prompt_orchestration.get_prompt_data import get_macro_news, build_eligibility_series
+from ..prompt_orchestration.get_prompt_data import (
+    build_eligibility_series,
+    get_adanos_sentiment_context,
+    get_macro_news,
+)
 from libb.model import LIBBmodel
 
 # -------------------------------------------------------------------
@@ -115,6 +119,7 @@ INPUTS (SOLE SOURCE OF TRUTH)
 You receive ONLY:
 
 - MACRO_NEWS (rates, inflation, liquidity, sector rotation)
+- ADANOS_SENTIMENT_CONTEXT (optional sentiment for PORTFOLIO_STATE tickers only)
 - PORTFOLIO_STATE (authoritative holdings, cost basis, stops, conviction)
 - TRADE_EXECUTION_LOG (CSV: timestamp | ticker | action | status | shares | price)
 
@@ -136,6 +141,9 @@ GIVEN DATA
 
 MACRO_NEWS:
 {MACRO_NEWS}
+
+ADANOS_SENTIMENT_CONTEXT:
+{ADANOS_SENTIMENT_CONTEXT}
 
 PORTFOLIO_STATE:
 {PORTFOLIO_STATE}
@@ -295,6 +303,7 @@ def create_daily_prompt(libb: LIBBmodel):
 
     macro_news = get_macro_news()
     portfolio_state = libb.portfolio
+    adanos_sentiment_context = get_adanos_sentiment_context(portfolio_state["ticker"])
     portfolio_eligibility = build_eligibility_series(portfolio_state["ticker"])
     execution_log = libb.recent_execution_logs()
 
@@ -308,6 +317,7 @@ def create_daily_prompt(libb: LIBBmodel):
         + INPUT_BLOCK
         + GIVEN_DATA.format(
             MACRO_NEWS=macro_news,
+            ADANOS_SENTIMENT_CONTEXT=adanos_sentiment_context,
             PORTFOLIO_STATE=portfolio_state,
             TRADE_EXECUTION_LOG=execution_log,
             PORTFOLIO_TICKER_ELIGIBILITY=portfolio_eligibility,

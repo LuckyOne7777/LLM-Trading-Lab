@@ -98,6 +98,7 @@ INPUTS (SOLE SOURCE OF TRUTH)
 You receive ONLY:
 
 - MACRO_NEWS (rates, inflation, liquidity, sector rotation)
+- ADANOS_SENTIMENT_CONTEXT (optional sentiment for IPO_UNIVERSE and current portfolio tickers only)
 - IPO_UNIVERSE (hard BUY whitelist)
 - PORTFOLIO_STATE (authoritative holdings, cost basis, stops, conviction)
 - TRADE_EXECUTION_LOG (CSV: timestamp | ticker | action | status | shares | price)
@@ -120,6 +121,9 @@ GIVEN DATA
 
 MACRO_NEWS:
 {MACRO_NEWS}
+
+ADANOS_SENTIMENT_CONTEXT:
+{ADANOS_SENTIMENT_CONTEXT}
 
 IPO_UNIVERSE:
 {IPO_UNIVERSE}
@@ -285,10 +289,13 @@ def create_deep_research_prompt(libb: LIBBmodel):
 
     ipo_universe = get_ipo_universe()
     formatted_ipo_universe = format_universe_for_prompt(ipo_universe)
+    sentiment_tickers = [item.get("ticker") for item in ipo_universe if isinstance(item, dict)]
 
     ipo_universe_eligibility = build_eligibility_series_from_universe(ipo_universe)
 
     portfolio_state = libb.portfolio
+    sentiment_tickers.extend(portfolio_state["ticker"])
+    adanos_sentiment_context = get_adanos_sentiment_context(sentiment_tickers)
     portfolio_tickers_eligibility = build_eligibility_series(portfolio_state["ticker"])
     execution_log = libb.recent_execution_logs()
 
@@ -308,6 +315,7 @@ def create_deep_research_prompt(libb: LIBBmodel):
         + INPUT_BLOCK
         + GIVEN_DATA.format(
             MACRO_NEWS=macro_news,
+            ADANOS_SENTIMENT_CONTEXT=adanos_sentiment_context,
             IPO_UNIVERSE=formatted_ipo_universe,
             IPO_TICKER_ELIGIBILITY=ipo_universe_eligibility,
             PORTFOLIO_STATE=portfolio_state,
