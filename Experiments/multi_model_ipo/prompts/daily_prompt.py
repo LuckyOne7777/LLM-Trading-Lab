@@ -1,6 +1,6 @@
 import pandas as pd
 
-from ..prompt_orchestration.get_prompt_data import get_macro_news, build_eligibility_series
+from ..prompt_orchestration.main_functions import get_macro_news, build_eligibility_series
 from libb.model import LIBBmodel
 import collections
 

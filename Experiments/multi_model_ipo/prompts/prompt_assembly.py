@@ -1,4 +1,4 @@
-from ..prompt_orchestration.get_prompt_data import *
+from ..prompt_orchestration.main_functions import *
 from ..prompts.deep_research_prompt import *
 from ..prompts.daily_prompt import *
 
