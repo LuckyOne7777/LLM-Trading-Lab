@@ -169,9 +169,9 @@ BUY RULE:
 - New positions may only be initiated from IPO_UNIVERSE
 
 <ORDERS_JSON>
-{
+{{
   "orders": [
-    {
+    {{
       "action": "b|s|u",
       "ticker": "XYZ",
       "shares": 0,
@@ -182,13 +182,13 @@ BUY RULE:
       "stop_loss": 0.0|null,
       "rationale": "brief justification",
       "confidence": 0.0
-    }
+    }}
   ]
-}
+}}
 </ORDERS_JSON>
 
 If no trades:
-{ "orders": [] }
+{{ "orders": [] }}
 """
 
 
@@ -244,7 +244,7 @@ STRICT VALID JSON ONLY.
 NO COMMENTS. NO EXTRA TEXT.
 
 If no trades:
-{ "orders": [] }
+{{ "orders": [] }}
 </ORDERS_JSON>
 
 
