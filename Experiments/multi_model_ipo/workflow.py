@@ -113,7 +113,7 @@ def testing_main():
 
         if run_date == STARTING_DATE:
             print("Starting Date: Running Starting Work Flow...")
-            starting_flow(TODAY)
+            starting_flow(run_date)
 
         elif day_num  == 4: # Friday
             print("Friday: Running Weekly Flow...")
