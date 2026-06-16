@@ -1262,7 +1262,7 @@ def daily_results(chatgpt_portfolio: pd.DataFrame, cash: float) -> None:
                     elif dollar_volume < 100000:
                         print(f"  {ticker_str}: Low liquidity - ${dollar_volume:,.0f} traded today")
                         warnings_found = True
-        except:
+        except Exception:
             pass
     
     if not warnings_found:
