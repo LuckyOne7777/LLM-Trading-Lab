@@ -287,8 +287,8 @@ def get_macro_news(n=5):
             latest = hist.iloc[-1]
 
             lines.append(
-                f"SPY_CLOSE={float(latest['Close'])} "
-                f"SPY_VOLUME={float(latest['Volume'])}"
+                f"SPY_CLOSE={round(float(latest['Close']), 2)}\n"
+                f"SPY_VOLUME={round(float(latest['Volume']), 2)}"
             )
     except:
         lines.append("SPY=ERROR")
@@ -303,7 +303,7 @@ def get_macro_news(n=5):
 
         if len(vh) > 0:
             latest = vh.iloc[-1]
-            lines.append(f"VIX_CLOSE={float(latest['Close'])}")
+            lines.append(f"VIX_CLOSE={round(float(latest['Close']), 2)}")
     except:
         lines.append("VIX=ERROR")
 
@@ -317,7 +317,7 @@ def get_macro_news(n=5):
 
         if len(th) > 0:
             latest = th.iloc[-1]
-            lines.append(f"TNX_10Y={float(latest['Close'])}")
+            lines.append(f"TNX_10Y={round(float(latest['Close']), 2)}")
     except:
         lines.append("TNX=ERROR")
 
