@@ -173,7 +173,10 @@ RULES:
 </ORDERS_JSON>
 
 If no trades:
-{ "orders": [] }
+
+</ORDERS_JSON>
+{{ "orders": [] }}
+<ORDERS_JSON>
 """
 
 

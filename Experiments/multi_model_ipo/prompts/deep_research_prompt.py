@@ -188,7 +188,10 @@ BUY RULE:
 </ORDERS_JSON>
 
 If no trades:
+
+</ORDERS_JSON>
 {{ "orders": [] }}
+<ORDERS_JSON>
 """
 
 
