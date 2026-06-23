@@ -1,6 +1,7 @@
 from openai import OpenAI
 import os
 import pandas as pd
+import anthropic
 from datetime import datetime
 from ..prompts.prompt_assembly import *
 from ..prompts.starting_prompt import create_starting_prompt
