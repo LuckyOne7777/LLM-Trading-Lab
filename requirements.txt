@@ -4,6 +4,6 @@ yfinance==0.2.65
 matplotlib==3.8.4
 pandas_market_calendars==5.3.2
 pysentiment2==0.1.1
-litellm==1.87.5
+litellm>=1.80.0,<1.87.0
 python-dotenv==1.2.2
 git+https://github.com/LuckyOne7777/LLM-Investor-Behavior-Benchmark.git
