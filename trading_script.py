@@ -1471,26 +1471,9 @@ def set_prompt(weekly=False):
 WEEKLY_PROMPT_FILE = Path("Start Your Own") / "weekly prompt.md"
 
 _FALLBACK_WEEKLY_PROMPT = """
-As a senior equity analyst, reevaluate this portfolio: (insert [Holdings] & [Snapshot]).
-Mandate: Maximize Alpha via the 'Institutional Opportunity Cost' principle.
-
-CRITICAL PORTFOLIO CONSTRAINTS:
-- Do not suggest any transaction that breaches the mandatory 10% Cash Reserve floor.
-- Maintain a hyper-concentrated structure of exactly 5–6 stocks. No diworsification.
-- NVDA is strictly the benchmark hurdle. Never suggest buying or selling NVDA.
-
-RESEARCH PROTOCOL:
-- 1. Scan for Step-Changes: Identify candidates (>$500M cap) with recent 2σ volume spikes and fundamental catalysts
-  (Earnings beats >15%, supply-side shocks, or 18A-tier tech breakthroughs).
-- 2. Momentum Filter: Exclude stocks ranging for 3+ months. Prioritize vertical breakouts over 'value' plays.
-- 3. The Bar is Higher: A new candidate must show higher institutional accumulation velocity than the current weakest holding.
-  If no current holding is underperforming the S&P 500, the default directive is to HOLD the incumbents to avoid retail churn.
-- 4. Risk Calibration: Apply the 'Staggered 8%' Protocol to all suggestions, identifying the 'Institutional Origin' for
-  stop-loss placement. Maximum risk per trade must not violate a 2% total portfolio equity risk ceiling.
-- 5. Execution: Suggest specific Buy/Sell/Rotate actions only if a clear Relative Strength Swap is justified against a
-  lagging incumbent. Deliver an updated, mathematically accurate [Holdings] and [Snapshot] table matching the new allocation.
-
-Remember: your primary goal is Alpha.
+Use equity_portfolio_strategy.md and weekly_deep_research.md as governing instructions.
+The legacy momentum/rotation mandate is retired. Do not place trades without authorization.
+If the weekly prompt file is unavailable, report the data and request the current research policy.
 """.strip()
 
 
@@ -1852,14 +1835,31 @@ def daily_results(
     final_equity = current_portfolio_value + cash  # Use CALCULATED equity, not CSV
     equity_series = totals.set_index("Date")["Total Equity"].astype(float).sort_index()
 
+    # External transfers must be explicitly recorded; cash-balance heuristics are not reliable.
+    from portfolio_reporting import load_external_flows, time_weighted_returns
+    flow_path = DATA_DIR / "external_cash_flows.csv"
+    try:
+        verified_flows = load_external_flows(flow_path)
+    except (ValueError, OSError) as exc:
+        logger.warning("External cash flow file invalid: %s", exc)
+        verified_flows = None
+    verified_returns = time_weighted_returns(equity_series, verified_flows)
+    risk_verified = verified_returns is not None
+    risk_equity = equity_series
+    if risk_verified:
+        risk_equity = pd.concat([
+            pd.Series([1.0], index=[equity_series.index[0]]),
+            (1.0 + verified_returns).cumprod(),
+        ])
+
     # --- Max Drawdown ---
-    running_max = equity_series.cummax()
-    drawdowns = (equity_series / running_max) - 1.0
+    running_max = risk_equity.cummax()
+    drawdowns = (risk_equity / running_max) - 1.0
     max_drawdown = float(drawdowns.min())  # most negative value
     mdd_date = drawdowns.idxmin()
 
     # Daily simple returns (portfolio)
-    r = equity_series.pct_change().dropna()
+    r = verified_returns if risk_verified else equity_series.pct_change().dropna()
     n_days = len(r)
     if n_days < 2:
         print("\n" + "=" * 64)
@@ -1967,7 +1967,8 @@ def daily_results(
             rm_std = float(np.std(x, ddof=1)) if n_obs > 1 else 0.0
             if rm_std > 0:
                 beta, alpha_daily = np.polyfit(x, y, 1)
-                alpha_annual = (1 + float(alpha_daily)) ** 252 - 1
+                # Arithmetic annualization avoids absurd compounding of a noisy daily intercept.
+                alpha_annual = float(alpha_daily) * 252
 
                 corr = np.corrcoef(x, y)[0, 1]
                 r2 = float(corr ** 2)
@@ -2015,21 +2016,26 @@ def daily_results(
         mdd_date_str = mdd_date.strftime("%Y-%m-%d")
     else:
         mdd_date_str = str(mdd_date)
-    print(f"{'Max Drawdown:':32} {fmt_or_na(max_drawdown, '{:.2%}'):>15}   on {mdd_date_str}")
-    print(f"{'Sharpe Ratio (period):':32} {fmt_or_na(sharpe_period, '{:.4f}'):>15}")
-    print(f"{'Sharpe Ratio (annualized):':32} {fmt_or_na(sharpe_annual, '{:.4f}'):>15}")
-    print(f"{'Sortino Ratio (period):':32} {fmt_or_na(sortino_period, '{:.4f}'):>15}")
-    print(f"{'Sortino Ratio (annualized):':32} {fmt_or_na(sortino_annual, '{:.4f}'):>15}")
+    print(f"{'Max Drawdown:':32} {fmt_or_na(max_drawdown if risk_verified else None, '{:.2%}'):>15}"
+          f"   on {mdd_date_str if risk_verified else 'N/A'}")
+    print(f"{'Sharpe Ratio (period):':32} {fmt_or_na(sharpe_period if risk_verified else None, '{:.4f}'):>15}")
+    print(f"{'Sharpe Ratio (annualized):':32} {fmt_or_na(sharpe_annual if risk_verified else None, '{:.4f}'):>15}")
+    print(f"{'Sortino Ratio (period):':32} {fmt_or_na(sortino_period if risk_verified else None, '{:.4f}'):>15}")
+    print(f"{'Sortino Ratio (annualized):':32} {fmt_or_na(sortino_annual if risk_verified else None, '{:.4f}'):>15}")
 
     print("\n[ CAPM vs Benchmarks ]")
-    if not np.isnan(beta):
+    if risk_verified and not np.isnan(beta):
         print(f"{'Beta (daily) vs ^GSPC:':32} {beta:>15.4f}")
         print(f"{'Alpha (annualized) vs ^GSPC:':32} {alpha_annual:>15.2%}")
         print(f"{'R² (fit quality):':32} {r2:>15.3f}   {'Obs:':>6} {n_obs}")
         if n_obs < 60 or (not np.isnan(r2) and r2 < 0.20):
             print("  Note: Short sample and/or low R² — alpha/beta may be unstable.")
     else:
-        print("Beta/Alpha: insufficient overlapping data.")
+        print("Beta/Alpha: N/A (verified flows or sufficient aligned data required).")
+
+    if not risk_verified:
+        print("  Risk and return statistics: N/A until external_cash_flows.csv is supplied.")
+        print("  An empty Date,Amount CSV is valid only if you verified there were no transfers.")
 
     print("\n[ Snapshot ]")
     print(f"{'Latest ChatGPT Equity:':32} ${final_equity:>14,.2f}")
@@ -2042,8 +2048,9 @@ def daily_results(
 
     print("\n[ 6-Month Performance ]")
     cash_series = totals.set_index("Date")["Cash Balance"].astype(float).sort_index()
-    deposits = _detect_deposits(cash_series, TRADE_LOG_CSV)
-    adj_equity = _twr_equity(equity_series, deposits)
+    adj_equity = risk_equity if risk_verified else equity_series
+    if not risk_verified:
+        print("  Warning: chart uses raw equity, not cash-flow-adjusted performance.")
     for line in _text_performance_chart(adj_equity, spx_norm):
         print(line)
 
@@ -2144,8 +2151,26 @@ def daily_results(
     if add_market_data:
         _print_market_data_section(portfolio_dict)
     if show_weekly_prompt:
+        from portfolio_reporting import weekly_research_input
+        price_lookup = {}
+        for ticker, close, *_ in rows:
+            try:
+                price_lookup[str(ticker).upper()] = float(str(close).replace(",", ""))
+            except (TypeError, ValueError):
+                continue
+        try:
+            audit_log = pd.read_csv(TRADE_LOG_CSV) if TRADE_LOG_CSV.exists() else pd.DataFrame()
+            report = weekly_research_input(
+                portfolio_dict, price_lookup, cash, final_equity, audit_log, end_d,
+                equity_history=equity_series, external_flows=verified_flows,
+                benchmark_prices=spx["Close"] if not spx.empty else None,
+            )
+            print("\n" + report)
+        except (ValueError, OSError, KeyError) as exc:
+            logger.warning("Could not generate weekly research input: %s", exc)
+            print(f"Weekly research data unavailable: {exc}")
         print_weekly_transactions_table(weeks=4, as_of=end_d)
-    set_prompt(args.weekly)
+    set_prompt(show_weekly_prompt)
 
 
 # ------------------------------
