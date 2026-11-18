@@ -1468,10 +1468,9 @@ def set_prompt(weekly=False):
     else:
         print_daily_instructions()
 
-def print_weekly_instructions() -> None:
-    """Print the LLM instructions section."""
-    print("\n[ Your Instructions ]")
-    print("""
+WEEKLY_PROMPT_FILE = Path("Start Your Own") / "weekly prompt.md"
+
+_FALLBACK_WEEKLY_PROMPT = """
 As a senior equity analyst, reevaluate this portfolio: (insert [Holdings] & [Snapshot]).
 Mandate: Maximize Alpha via the 'Institutional Opportunity Cost' principle.
 
@@ -1492,10 +1491,20 @@ RESEARCH PROTOCOL:
   lagging incumbent. Deliver an updated, mathematically accurate [Holdings] and [Snapshot] table matching the new allocation.
 
 Remember: your primary goal is Alpha.
+""".strip()
 
-    *Paste everything above into ChatGPT*
-          """
-    )
+
+def print_weekly_instructions() -> None:
+    """Print the LLM instructions section, read from 'Start Your Own/weekly prompt.md'."""
+    print("\n[ Your Instructions ]")
+    path = SCRIPT_DIR / WEEKLY_PROMPT_FILE
+    try:
+        prompt = path.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        print(f"\n(Could not load weekly prompt from {path}: {exc})")
+        prompt = _FALLBACK_WEEKLY_PROMPT
+    print("\n" + prompt)
+    print("\n    *Paste everything above into ChatGPT*\n")
 
 DAILY_PROMPT_FILE = Path("Start Your Own") / "daily prompt.md"
 
@@ -1511,6 +1520,64 @@ def print_daily_instructions() -> None:
         return
     print("\n" + prompt)
     print("\n    *Paste everything above into ChatGPT*\n")
+
+
+def print_weekly_transactions_table(weeks: int = 4, as_of: pd.Timestamp | None = None) -> None:
+    """Print a table of all buy/sell transactions from the last `weeks` weeks, read from the trade log CSV.
+
+    `as_of` lets callers reuse an already-computed reference date (e.g. daily_results'
+    `end_d`) instead of calling last_trading_date() again, which would log a duplicate
+    "before/after market hours" message.
+    """
+    print(f"\n[ Last {weeks} Weeks Transactions ]")
+    if not TRADE_LOG_CSV.exists():
+        print("No trade log found.")
+        return
+    try:
+        trade_log = pd.read_csv(TRADE_LOG_CSV)
+    except Exception as e:
+        print(f"Could not read trade log: {e}")
+        return
+
+    trade_log["Date"] = pd.to_datetime(trade_log["Date"], errors="coerce")
+    reference_date = as_of if as_of is not None else last_trading_date()
+    if reference_date.tzinfo is not None:
+        reference_date = reference_date.tz_localize(None)  # trade log dates are naive
+    cutoff = reference_date - pd.Timedelta(weeks=weeks)
+    recent = trade_log[trade_log["Date"] >= cutoff].sort_values("Date")
+
+    if recent.empty:
+        print(f"No transactions in the last {weeks} weeks.")
+        return
+
+    header = ["Date", "Ticker", "Action", "Shares", "Price", "Amount", "PnL"]
+    colw = [10, 8, 6, 10, 10, 12, 10]
+    print(" ".join(f"{h:<{w}}" for h, w in zip(header, colw)))
+    print("-" * (sum(colw) + len(colw) - 1))
+
+    for _, trade in recent.iterrows():
+        reason = str(trade.get("Reason", ""))
+        date_str = trade["Date"].strftime("%Y-%m-%d") if pd.notna(trade["Date"]) else "—"
+        ticker = str(trade.get("Ticker", ""))
+
+        if "BUY" in reason:
+            action = "BUY"
+            shares = trade["Shares Bought"] if pd.notna(trade.get("Shares Bought")) else 0.0
+            price = trade["Buy Price"] if pd.notna(trade.get("Buy Price")) else 0.0
+            amount = trade["Cost Basis"] if pd.notna(trade.get("Cost Basis")) else 0.0
+            pnl_str = "—"
+        elif "SELL" in reason:
+            action = "SELL"
+            shares = trade["Shares Sold"] if pd.notna(trade.get("Shares Sold")) else 0.0
+            price = trade["Sell Price"] if pd.notna(trade.get("Sell Price")) else 0.0
+            amount = shares * price
+            pnl = trade["PnL"] if pd.notna(trade.get("PnL")) else 0.0
+            pnl_str = f"{'+' if pnl >= 0 else ''}{pnl:.2f}"
+        else:
+            continue
+
+        row = [date_str, ticker, action, f"{shares:.4f}", f"${price:.2f}", f"${amount:.2f}", pnl_str]
+        print(" ".join(f"{str(c):<{w}}" for c, w in zip(row, colw)))
 
 
 _C_GREEN = "\033[92m"
@@ -1758,6 +1825,8 @@ def daily_results(
         print("\n[ Portfolio Snapshot ]")
         print(chatgpt_portfolio)
         print(f"Cash balance: ${cash:,.2f}")
+        if show_weekly_prompt:
+            print_weekly_transactions_table(weeks=4, as_of=end_d)
         return
 
     totals["Date"] = pd.to_datetime(totals["Date"], format="mixed", errors="coerce")  # tolerate ISO strings
@@ -1815,6 +1884,8 @@ def daily_results(
         print(f"Maximum Drawdown: {max_drawdown:.2%} (on {mdd_date_str})")
         if add_market_data:
             _print_market_data_section(portfolio_dict)
+        if show_weekly_prompt:
+            print_weekly_transactions_table(weeks=4, as_of=end_d)
         set_prompt(show_weekly_prompt)
         return
 
@@ -2072,6 +2143,8 @@ def daily_results(
 
     if add_market_data:
         _print_market_data_section(portfolio_dict)
+    if show_weekly_prompt:
+        print_weekly_transactions_table(weeks=4, as_of=end_d)
     set_prompt(args.weekly)
 
 

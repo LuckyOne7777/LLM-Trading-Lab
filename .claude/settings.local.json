@@ -8,7 +8,9 @@
       "Bash(npm outdated:*)",
       "WebFetch(domain:medium.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "Bash(timeout 60 bash -c \"echo '' | python3 trading_script.py --weekly --asof 2026-11-17 --log-level ERROR\")",
+      "Bash(timeout 60 bash -c \"echo '' | python3 trading_script.py --asof 2026-11-17 --log-level ERROR\")"
     ],
     "deny": [],
     "ask": []
